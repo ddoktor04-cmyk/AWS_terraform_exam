@@ -325,3 +325,21 @@ terraform destroy -auto-approve
 `.gitignore` excludes Terraform state, lock overrides, `*.tfvars`, PEM keys
 and `key_Student.txt` — **no secrets are committed**. AWS credentials are only
 passed via environment variables (`TF_VAR_*`) at apply time.
+
+---
+
+## Screenshots
+
+Console evidence for every exam requirement (AWS account `989346119941`,
+region `eu-north-1`):
+
+| # | File | Shows |
+|---|---|---|
+| 01 | `screens/01-ecs-service.png` | ECS service `exam-todoai-svc`: status Active, 1 desired/running task, task definition `exam-todoai:1`, LB target health (1 Healthy via `exam-todoai-tg` / `exam-todoai-alb`) |
+| 02 | `screens/02-ecs-cluster.png` | ECS cluster `exam-todoai` with its services and tasks |
+| 03 | `screens/03-alb.png` | Application Load Balancer `exam-todoai-alb` (internet-facing, DNS, listeners) |
+| 04 | `screens/04-targetgroup.png` | Target group `exam-todoai-tg`: HTTP:80, target type `ip`, health check `GET /` |
+| 05 | `screens/05-route53-zone.png` | Route53 hosted zone `hwbarabash1.pp.ua` with its records (NS/SOA + alias A) |
+| 06 | `screens/06-cloudwatch-alarms.png` | CloudWatch alarms: CPU/requests scale-out (70 %) and below-50 %-for-15-min scale-in alarms |
+| 07 | `screens/07-autoscaling.png` | Service auto scaling: task count **1–4**, two Active Target Tracking policies — `exam-cpu-scale-out` (`ECSServiceAverageCPUUtilization` 70 %) and `exam-requests-scale-out` (`ALBRequestCountPerTarget` 70) |
+| 08 | `screens/08-ecr-images.png` | ECR repository `todoai` with image tag `Vbarabash` |
