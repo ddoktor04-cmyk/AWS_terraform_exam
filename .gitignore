@@ -1,0 +1,19 @@
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+crash.log
+override.tf
+override.tf.json
+
+# Secrets / keys
+*.pem
+key_Student.txt
+.env
+
+# OS / editor
+.DS_Store
+*.swp
