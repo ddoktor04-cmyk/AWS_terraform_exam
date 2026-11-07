@@ -1,0 +1,245 @@
+AWS EXAM - ECS FARGATE AUTOSCALING - SCREENSHOTS DESCRIPTION
+============================================================
+
+Project: ToDoAI (https://github.com/macnaer/ToDoAI)
+Region: Europe (Stockholm) eu-north-1
+Cluster: exam-todoai
+Service: exam-todoai-svc
+Date: November 7, 2026
+
+
+############################################################
+PART 1. ENGLISH
+############################################################
+
+Screenshot 1 (exam1.jpg) - Docker image build on the server
+-----------------------------------------------------------
+Terminal session (MobaXterm) connected to the server 172.14.50.148 as user1,
+working directory /home/user1/AWSexam/ToDoAI. The cloned repository files are
+visible (package.json, src, tsconfig.json, vite.config.ts, etc.).
+Commands shown:
+  - docker --version  -> Docker version 29.4.3
+  - ls Dockerfile docker-compose.yml  -> only Dockerfile exists
+  - docker build -t todoai:latest .
+The build finished successfully (9/9 steps, 142.7 s): base image node:latest,
+WORKDIR /opt/todo, COPY, and "npm install && npm run build".
+
+Screenshot 2 (exam2.jpg) - Image in Amazon ECR
+----------------------------------------------
+AWS Console -> Amazon ECR -> Private registry -> Repositories -> "todoai",
+tab "Images". The repository contains 3 items: an Image Index with a tag
+(size 514.17 MB) and an untagged image entry (0.00 MB), both created on
+November 07, 2026 at 14:45:26 (UTC+02). This proves the todoai image was
+pushed to the private ECR repository.
+
+Screenshot 3 (exam3.jpg) - Scaling policies list (short view)
+-------------------------------------------------------------
+ECS -> Clusters -> exam-todoai -> Services -> exam-todoai-svc ->
+Service auto scaling. The number of tasks to run is 1 - 4.
+Two scaling policies are listed, both of type Target Tracking, status Active,
+scaling mechanism "Maintain target":
+  - exam-cpu-scale-out (ECSServiceAverageCPUUtilization)
+  - exam-requests-scale-out (ALBRequestCountPerTarget)
+
+Screenshot 4 (exam4.jpg) - Service overview with policies and activities
+------------------------------------------------------------------------
+Service exam-todoai-svc: Status Active, Tasks 1 desired (1 running, 0 pending),
+task definition exam-todoai:1, deployment status Success.
+Tab "Service auto scaling": task count 1 - 4, two Target Tracking policies:
+  - exam-cpu-scale-out: ECSServiceAverageCPUUtilization (70%)
+  - exam-requests-scale-out: ALBRequestCountPerTarget (70)
+The "Scaling activities" table is visible below.
+
+Screenshot 5 (exam5.jpg) - Auto Scaling block in the service configuration
+--------------------------------------------------------------------------
+Service Configuration page, "Auto Scaling" section: Desired tasks 1,
+Min tasks 1, Max tasks 4. Policies (2), both Target tracking with Scale-in = On:
+  - exam-requests-scale-out: ALBRequestCountPerTarget at 70
+  - exam-cpu-scale-out: ECSServiceAverageCPUUtilization at 70
+The Alarm column shows the automatically created TargetTracking AlarmHigh
+alarms (+1 more, the AlarmLow alarm).
+
+Screenshot 6 (exam6.jpg) - Min / Max number of tasks
+----------------------------------------------------
+Page "Manage service auto scaling" -> "Set the number of tasks".
+The option "Use service auto scaling to adjust your service's desired task
+count" is enabled. Minimum number of tasks = 1, Maximum = 4.
+This matches the requirement: scalable target ecs:service:DesiredCount,
+min 1 / max 4 tasks.
+
+Screenshot 7 (exam7.jpg) - Policy exam-cpu-scale-out details
+------------------------------------------------------------
+Policy details window:
+  - Policy type: Target Tracking, Scaling action: Maintain target
+  - Scalable dimension: ecs:service:DesiredCount
+  - Target: ECSServiceAverageCPUUtilization (70%), Status: Active
+  - Scale in cooldown period: 900 seconds (15 minutes)
+  - Scale out cooldown period: 60 seconds
+  - Scale in protection: Off
+Scaling activities in the background show real scaling events: desired count
+set to 2 at 16:46 and back to 1 at 17:02 (triggered by the AlarmLow alarm).
+
+Screenshot 8 (exam8.jpg) - Policy exam-requests-scale-out details
+-----------------------------------------------------------------
+Policy details window:
+  - Policy type: Target Tracking, Scaling action: Maintain target
+  - Scalable dimension: ecs:service:DesiredCount
+  - Target: ALBRequestCountPerTarget (70), Status: Active
+  - Scale in cooldown period: 900 seconds (15 minutes)
+  - Scale out cooldown period: 60 seconds
+  - Scale in protection: Off
+Scaling activities in the background confirm that the desired task count
+changed during the load test.
+
+Screenshot 9 (exam9.jpg) - Service health and metrics
+-----------------------------------------------------
+ECS -> exam-todoai-svc -> Health and metrics (Container Insights metrics,
+last 3 hours, UTC). Charts: CPU utilization, Memory utilization, Network RX,
+Network TX, Storage read, Storage write. The charts show short load spikes
+(around 16:15 and 16:30) and a return to low values afterwards, which
+corresponds to the scale-out and scale-in events.
+
+Screenshot 10 (exam10.jpg) - CloudWatch alarms
+----------------------------------------------
+CloudWatch -> Alarms, filter "exam-", 6 alarms:
+  - TargetTracking ...AlarmHigh (CPUUtilization > 70 for 3 datapoints within
+    3 minutes) - state OK, actions enabled (scale-out)
+  - TargetTracking ...AlarmHigh (RequestCountPerTarget > 70 for 3 datapoints
+    within 3 minutes) - state OK, actions enabled (scale-out)
+  - TargetTracking ...AlarmLow (CPUUtilization < 63 for 15 datapoints within
+    15 minutes) - In alarm, actions enabled (scale-in)
+  - TargetTracking ...AlarmLow (RequestCountPerTarget < 63 for 15 datapoints
+    within 15 minutes) - In alarm, actions enabled (scale-in)
+  - exam-cpu-below-50-for-15m (CPUUtilization < 50 for 3 datapoints within
+    15 minutes) - In alarm, no actions (documents the scale-in condition)
+  - exam-requests-below-50-for-15m (RequestCountPerTarget < 50 for 3 datapoints
+    within 15 minutes) - In alarm, no actions (documents the scale-in condition)
+
+SUMMARY (requirements 3.5)
+--------------------------
+  - Scalable target: ecs:service:DesiredCount, min 1 / max 4 tasks.
+  - Scale-OUT: Target Tracking, TargetValue 70, ScaleOutCooldown 60 s,
+    metrics ECSServiceAverageCPUUtilization and ALBRequestCountPerTarget.
+  - Scale-IN: ScaleInCooldown 900 s (15 minutes), scale-in enabled, plus two
+    CloudWatch alarms for the "below 50% for 15 minutes" condition.
+  - Real scaling activity (growth to 2-3 tasks and return to 1) is visible in
+    Scaling activities.
+
+
+############################################################
+ЧАСТИНА 2. УКРАЇНСЬКА
+############################################################
+
+Скрін 1 (exam1.jpg) - Збірка Docker-образу на сервері
+-----------------------------------------------------
+Термінал (MobaXterm), підключення до сервера 172.14.50.148 під користувачем
+user1, робоча папка /home/user1/AWSexam/ToDoAI. Видно файли клонованого
+репозиторію (package.json, src, tsconfig.json, vite.config.ts тощо).
+Виконані команди:
+  - docker --version  -> Docker version 29.4.3
+  - ls Dockerfile docker-compose.yml  -> є лише Dockerfile
+  - docker build -t todoai:latest .
+Збірка завершилась успішно (9/9 кроків, 142.7 с): базовий образ node:latest,
+WORKDIR /opt/todo, COPY та "npm install && npm run build".
+
+Скрін 2 (exam2.jpg) - Образ в Amazon ECR
+----------------------------------------
+AWS Console -> Amazon ECR -> Private registry -> Repositories -> "todoai",
+вкладка "Images". У репозиторії 3 елементи: Image Index з тегом
+(розмір 514.17 МБ) та запис образу без тегу (0.00 МБ), обидва створені
+07 листопада 2026 о 14:45:26 (UTC+02). Це підтверджує, що образ todoai
+завантажений у приватний репозиторій ECR.
+
+Скрін 3 (exam3.jpg) - Список політик масштабування (короткий вигляд)
+--------------------------------------------------------------------
+ECS -> Clusters -> exam-todoai -> Services -> exam-todoai-svc ->
+Service auto scaling. Кількість задач: 1 - 4.
+У списку дві політики типу Target Tracking, статус Active, механізм
+"Maintain target":
+  - exam-cpu-scale-out (ECSServiceAverageCPUUtilization)
+  - exam-requests-scale-out (ALBRequestCountPerTarget)
+
+Скрін 4 (exam4.jpg) - Огляд сервісу з політиками та подіями масштабування
+-------------------------------------------------------------------------
+Сервіс exam-todoai-svc: статус Active, задач 1 (desired), 1 running, 0 pending,
+task definition exam-todoai:1, статус розгортання Success.
+Вкладка "Service auto scaling": кількість задач 1 - 4, дві політики
+Target Tracking:
+  - exam-cpu-scale-out: ECSServiceAverageCPUUtilization (70%)
+  - exam-requests-scale-out: ALBRequestCountPerTarget (70)
+Нижче видно таблицю "Scaling activities".
+
+Скрін 5 (exam5.jpg) - Блок Auto Scaling у конфігурації сервісу
+--------------------------------------------------------------
+Сторінка Configuration сервісу, розділ "Auto Scaling": Desired tasks 1,
+Min tasks 1, Max tasks 4. Політик 2, обидві Target tracking, Scale-in = On:
+  - exam-requests-scale-out: ALBRequestCountPerTarget at 70
+  - exam-cpu-scale-out: ECSServiceAverageCPUUtilization at 70
+У колонці Alarm показані автоматично створені алярми TargetTracking AlarmHigh
+(+1 more, це алярм AlarmLow).
+
+Скрін 6 (exam6.jpg) - Мінімальна / максимальна кількість задач
+--------------------------------------------------------------
+Сторінка "Manage service auto scaling" -> "Set the number of tasks".
+Опція "Use service auto scaling to adjust your service's desired task count"
+увімкнена. Minimum number of tasks = 1, Maximum = 4.
+Це відповідає вимозі: scalable target ecs:service:DesiredCount,
+min 1 / max 4 задач.
+
+Скрін 7 (exam7.jpg) - Деталі політики exam-cpu-scale-out
+---------------------------------------------------------
+Вікно деталей політики:
+  - Тип політики: Target Tracking, дія: Maintain target
+  - Scalable dimension: ecs:service:DesiredCount
+  - Ціль: ECSServiceAverageCPUUtilization (70%), статус Active
+  - Scale in cooldown period: 900 секунд (15 хвилин)
+  - Scale out cooldown period: 60 секунд
+  - Scale in protection: Off
+У фоні в Scaling activities видно реальні події масштабування: desired count
+збільшився до 2 о 16:46 і повернувся до 1 о 17:02 (спрацював алярм AlarmLow).
+
+Скрін 8 (exam8.jpg) - Деталі політики exam-requests-scale-out
+-------------------------------------------------------------
+Вікно деталей політики:
+  - Тип політики: Target Tracking, дія: Maintain target
+  - Scalable dimension: ecs:service:DesiredCount
+  - Ціль: ALBRequestCountPerTarget (70), статус Active
+  - Scale in cooldown period: 900 секунд (15 хвилин)
+  - Scale out cooldown period: 60 секунд
+  - Scale in protection: Off
+У фоні в Scaling activities видно, що кількість задач змінювалась під час
+навантажувального тесту.
+
+Скрін 9 (exam9.jpg) - Стан сервісу та метрики
+---------------------------------------------
+ECS -> exam-todoai-svc -> Health and metrics (Container Insights metrics,
+останні 3 години, UTC). Графіки: CPU utilization, Memory utilization,
+Network RX, Network TX, Storage read, Storage write. Видно короткі сплески
+навантаження (близько 16:15 та 16:30) і повернення до низьких значень,
+що відповідає подіям scale-out та scale-in.
+
+Скрін 10 (exam10.jpg) - Алярми CloudWatch
+-----------------------------------------
+CloudWatch -> Alarms, фільтр "exam-", 6 алярмів:
+  - TargetTracking ...AlarmHigh (CPUUtilization > 70, 3 точки за 3 хвилини) -
+    стан OK, дії увімкнені (scale-out)
+  - TargetTracking ...AlarmHigh (RequestCountPerTarget > 70, 3 точки за
+    3 хвилини) - стан OK, дії увімкнені (scale-out)
+  - TargetTracking ...AlarmLow (CPUUtilization < 63, 15 точок за 15 хвилин) -
+    In alarm, дії увімкнені (scale-in)
+  - TargetTracking ...AlarmLow (RequestCountPerTarget < 63, 15 точок за
+    15 хвилин) - In alarm, дії увімкнені (scale-in)
+  - exam-cpu-below-50-for-15m (CPUUtilization < 50, 3 точки за 15 хвилин) -
+    In alarm, без дій (документує умову scale-in)
+  - exam-requests-below-50-for-15m (RequestCountPerTarget < 50, 3 точки за
+    15 хвилин) - In alarm, без дій (документує умову scale-in)
+
+ПІДСУМОК (вимоги 3.5)
+---------------------
+  - Scalable target: ecs:service:DesiredCount, min 1 / max 4 задачі.
+  - Scale-OUT: Target Tracking, TargetValue 70, ScaleOutCooldown 60 с,
+    метрики ECSServiceAverageCPUUtilization та ALBRequestCountPerTarget.
+  - Scale-IN: ScaleInCooldown 900 с (15 хвилин), зменшення увімкнене, плюс
+    два алярми CloudWatch для умови "нижче 50% протягом 15 хвилин".
+  - Реальне масштабування (зростання до 2-3 задач і повернення до 1) видно
+    в Scaling activities.
