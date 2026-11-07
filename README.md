@@ -105,7 +105,7 @@ locked down.
 
 ### 3.4 Route53 — public name via ALB
 
-* Public hosted zone `hwbarabash1.pp.zone` → **`hwbarabash1.pp.ua`**
+* Public hosted zone `hwbarabash1.pp.ua`
 * `A` record as an **alias** to the ALB
   (`evaluate_target_health = true`), so the application is reachable by name
   instead of by the generated ELB DNS name.
@@ -253,15 +253,20 @@ target:
 14:17:48  desired=4 running=4
 14:25:58  desired=4 running=4
 14:30:03  desired=4 running=4
-14:31:04  desired=3 running=3   ← scale-IN after 15-min cooldown (900 s)
+14:31:04  desired=3 running=3   ← scale-IN step (900 s cooldown expired)
+14:47:17  desired=2 running=2   ← next step after another cooldown window
+15:02:51  desired=1 running=1   ← back to the configured minimum
 ```
 
-Scale-in fired **~19 minutes** after the load stopped (15 minutes of metrics
-below target + evaluation granularity) and continued stepping down toward the
-minimum of 1 task, confirming the exam condition:
+Scale-in started **~19 minutes** after the load stopped (15 minutes of metrics
+below target + evaluation granularity) and stepped all the way down to the
+minimum, confirming the exam condition:
 
 * traffic/CPU fell from the > 70 % zone to ≤ 50 % and remained low for more
   than 15 minutes → instances (tasks) are removed.
+
+**Full observed cycle: 1 → 4 (scale-out under load) → 3 → 2 → 1 (scale-in
+after 15-min low-metric windows).**
 
 ---
 
